@@ -1,0 +1,278 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  phone         String?
+  avatar        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  groups        GroupMember[]
+  hostedGroups  Group[]         @relation("GroupHost")
+  contributions Contribution[]
+  payments      Payment[]
+  events        EventAttendee[]
+  hostedEvents  Event[]         @relation("EventHost")
+  messages      Message[]
+  invitations   Invitation[]
+  rewards       UserReward[]
+  gameSessions  GameSession[]
+  wonChits      Chit[]          @relation("ChitWinner")
+  chitParticipations ChitParticipant[] @relation("UserChitParticipations")
+  
+  @@map("users")
+}
+
+model Group {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  rules       String?  // Group rules and contribution amount
+  maxMembers  Int?
+  isActive    Boolean  @default(true)
+  monthlyAmount Float? // Monthly contribution amount
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  hostId      String
+  host        User     @relation("GroupHost", fields: [hostId], references: [id], onDelete: Cascade)
+  members     GroupMember[]
+  events      Event[]
+  contributions Contribution[]
+  chits       Chit[]
+  messages    Message[]
+  
+  @@map("groups")
+}
+
+model GroupMember {
+  id         String   @id @default(cuid())
+  role       String   @default("member") // admin, member
+  joinedAt   DateTime @default(now())
+  
+  // Relations
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId    String
+  group      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, groupId])
+  @@map("group_members")
+}
+
+model Contribution {
+  id         String   @id @default(cuid())
+  amount     Float
+  month      String   // Format: "2024-01"
+  status     String   @default("pending") // pending, paid, overdue
+  paidAt     DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  // Relations
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId    String
+  group      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  paymentId  String?
+  payment    Payment? @relation(fields: [paymentId], references: [id])
+  
+  @@unique([userId, groupId, month])
+  @@map("contributions")
+}
+
+model Payment {
+  id         String   @id @default(cuid())
+  amount     Float
+  method     String   // cash, upi, bank_transfer
+  status     String   @default("pending") // pending, completed, failed
+  transactionId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  // Relations
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contributions Contribution[]
+  
+  @@map("payments")
+}
+
+model Chit {
+  id         String   @id @default(cuid())
+  month      String   // Format: "2024-01"
+  status     String   @default("pending") // pending, completed
+  winnerId   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  // Relations
+  groupId    String
+  group      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  winner     User?    @relation("ChitWinner", fields: [winnerId], references: [id])
+  participants ChitParticipant[]
+  
+  @@unique([groupId, month])
+  @@map("chits")
+}
+
+model ChitParticipant {
+  id         String   @id @default(cuid())
+  isSelected Boolean  @default(false)
+  
+  // Relations
+  chitId     String
+  chit       Chit     @relation(fields: [chitId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation("UserChitParticipations", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([chitId, userId])
+  @@map("chit_participants")
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  date        DateTime
+  location    String?
+  theme       String?
+  budget      Float?
+  status      String   @default("upcoming") // upcoming, ongoing, completed, cancelled
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  groupId     String
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  hostId      String
+  host        User     @relation("EventHost", fields: [hostId], references: [id])
+  attendees   EventAttendee[]
+  invitations Invitation[]
+  games       Game[]
+  
+  @@map("events")
+}
+
+model EventAttendee {
+  id         String   @id @default(cuid())
+  status     String   @default("pending") // pending, confirmed, declined
+  rsvpedAt   DateTime @default(now())
+  
+  // Relations
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId    String
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, eventId])
+  @@map("event_attendees")
+}
+
+model Invitation {
+  id         String   @id @default(cuid())
+  message    String?
+  sentAt     DateTime @default(now())
+  respondedAt DateTime?
+  
+  // Relations
+  eventId    String
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  senderId   String
+  sender     User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  
+  @@map("invitations")
+}
+
+model Game {
+  id         String   @id @default(cuid())
+  name       String
+  type       String   // tambola, spin_wheel, quiz, minute_game
+  config     Json?    // Game configuration
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  
+  // Relations
+  eventId    String?
+  event      Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  sessions   GameSession[]
+  
+  @@map("games")
+}
+
+model GameSession {
+  id         String   @id @default(cuid())
+  score      Int?
+  status     String   @default("active") // active, completed, abandoned
+  startedAt  DateTime @default(now())
+  completedAt DateTime?
+  
+  // Relations
+  gameId     String
+  game       Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("game_sessions")
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  content    String
+  type       String   @default("text") // text, image, file
+  createdAt  DateTime @default(now())
+  
+  // Relations
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId    String
+  group      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  
+  @@map("messages")
+}
+
+model Reward {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  points      Int
+  type        String   // hosting, attending, playing
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  userRewards UserReward[]
+  
+  @@map("rewards")
+}
+
+model UserReward {
+  id         String   @id @default(cuid())
+  earnedAt   DateTime @default(now())
+  
+  // Relations
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rewardId   String
+  reward     Reward   @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, rewardId])
+  @@map("user_rewards")
+}
