@@ -186,7 +186,7 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Failed to load bookings:', error)
     }
-  }, [session?.user?.id])
+  }, [session])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
