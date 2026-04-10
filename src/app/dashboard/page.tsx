@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -100,21 +100,7 @@ export default function Dashboard() {
   const [showPayment, setShowPayment] = useState(false)
   const [paymentAmount, setPaymentAmount] = useState(1000)
 
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/')
-    }
-  }, [status, router])
-
-  useEffect(() => {
-    if (session) {
-      loadGroups()
-      loadEvents()
-      loadContributions()
-    }
-  }, [session])
-
-  const loadGroups = async () => {
+  const loadGroups = useCallback(async () => {
     try {
       const response = await fetch('/api/groups')
       if (response.ok) {
@@ -131,9 +117,9 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Failed to load groups:', error)
     }
-  }
+  }, [])
 
-  const loadEvents = async () => {
+  const loadEvents = useCallback(async () => {
     try {
       const response = await fetch('/api/events')
       if (response.ok) {
@@ -153,9 +139,9 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Failed to load events:', error)
     }
-  }
+  }, [])
 
-  const loadContributions = async () => {
+  const loadContributions = useCallback(async () => {
     try {
       const response = await fetch('/api/contributions')
       if (response.ok) {
@@ -172,7 +158,21 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Failed to load contributions:', error)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/')
+    }
+  }, [status, router])
+
+  useEffect(() => {
+    if (session) {
+      loadGroups()
+      loadEvents()
+      loadContributions()
+    }
+  }, [session, loadGroups, loadEvents, loadContributions])
 
   const createGroup = async () => {
     try {
