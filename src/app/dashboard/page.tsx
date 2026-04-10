@@ -100,6 +100,10 @@ export default function Dashboard() {
   const [showPayment, setShowPayment] = useState(false)
   const [paymentAmount, setPaymentAmount] = useState(1000)
 
+  // State for services
+  const [services, setServices] = useState<any[]>([])
+  const [bookings, setBookings] = useState<any[]>([])
+
   const loadGroups = useCallback(async () => {
     try {
       const response = await fetch('/api/groups')
@@ -160,6 +164,30 @@ export default function Dashboard() {
     }
   }, [])
 
+  const loadServices = useCallback(async () => {
+    try {
+      const response = await fetch('/api/services')
+      if (response.ok) {
+        const data = await response.json()
+        setServices(data)
+      }
+    } catch (error) {
+      console.error('Failed to load services:', error)
+    }
+  }, [])
+
+  const loadBookings = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/bookings?userId=${session?.user?.id}`)
+      if (response.ok) {
+        const data = await response.json()
+        setBookings(data)
+      }
+    } catch (error) {
+      console.error('Failed to load bookings:', error)
+    }
+  }, [session?.user?.id])
+
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/')
@@ -171,8 +199,10 @@ export default function Dashboard() {
       loadGroups()
       loadEvents()
       loadContributions()
+      loadServices()
+      loadBookings()
     }
-  }, [session, loadGroups, loadEvents, loadContributions])
+  }, [session, loadGroups, loadEvents, loadContributions, loadServices, loadBookings])
 
   const createGroup = async () => {
     try {
@@ -236,6 +266,29 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Failed to make payment:', error)
+    }
+  }
+
+  const bookService = async (serviceId: string) => {
+    try {
+      const response = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serviceId,
+          userId: session?.user?.id,
+          groupId: groups[0]?.id,
+          eventDate: new Date().toISOString(),
+          specialRequests: 'Party booking'
+        })
+      })
+      
+      if (response.ok) {
+        alert('Service booked successfully!')
+        loadBookings()
+      }
+    } catch (error) {
+      console.error('Failed to book service:', error)
     }
   }
 
@@ -793,7 +846,7 @@ export default function Dashboard() {
               <h2 className="text-2xl font-bold">Party Services & Booking</h2>
               <Badge variant="secondary" className="text-sm">
                 <Sparkles className="w-4 h-4 mr-1" />
-                New Feature
+                {services.length} Services Available
               </Badge>
             </div>
 
@@ -807,19 +860,22 @@ export default function Dashboard() {
                   <CardDescription>Order food packages for your party</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {[
-                    { id: 1, name: 'Snack Party Pack', price: 299, items: 'Samosa, Pakoda, Chips' },
-                    { id: 2, name: 'Full Catering Package', price: 999, items: 'Starters, Main Course, Desserts' },
-                    { id: 3, name: 'Dessert Bundle', price: 199, items: 'Gulab Jamun, Rasgulla, Ice Cream' },
-                  ].map(service => (
+                  {services.filter(s => s.type === 'food').map(service => (
                     <div key={service.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div>
                         <h4 className="font-medium">{service.name}</h4>
-                        <p className="text-sm text-gray-600">{service.items}</p>
+                        <p className="text-sm text-gray-600">{service.description}</p>
+                        <p className="text-xs text-gray-500">{service.duration}</p>
                       </div>
                       <div className="text-right">
                         <p className="font-medium">₹{service.price}</p>
-                        <Button size="sm" variant="outline">Order</Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => bookService(service.id)}
+                        >
+                          Book Now
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -835,25 +891,54 @@ export default function Dashboard() {
                   <CardDescription>Book decorations and party supplies</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {[
-                    { name: 'Bollywood Theme Decor', price: 799 },
-                    { name: 'Festival Decoration Kit', price: 599 },
-                    { name: 'Balloon & Flower Setup', price: 399 },
-                  ].map((service, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                  {services.filter(s => s.type === 'decoration').map(service => (
+                    <div key={service.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div>
                         <h4 className="font-medium">{service.name}</h4>
-                        <p className="text-sm text-gray-600">Complete setup included</p>
+                        <p className="text-sm text-gray-600">{service.description}</p>
+                        <p className="text-xs text-gray-500">{service.duration}</p>
                       </div>
                       <div className="text-right">
                         <p className="font-medium">₹{service.price}</p>
-                        <Button size="sm" variant="outline">Book</Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => bookService(service.id)}
+                        >
+                          Book Now
+                        </Button>
                       </div>
                     </div>
                   ))}
                 </CardContent>
               </Card>
             </div>
+
+            {bookings.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Your Recent Bookings</CardTitle>
+                  <CardDescription>Track your service bookings</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {bookings.slice(0, 3).map(booking => (
+                      <div key={booking.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <h4 className="font-medium">{booking.service.name}</h4>
+                          <p className="text-sm text-gray-600">
+                            {new Date(booking.eventDate).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <Badge variant={booking.status === 'confirmed' ? "default" : "secondary"}>
+                          {booking.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>

@@ -311,3 +311,38 @@ model UserReward {
   @@unique([userId, rewardId])
   @@map("user_rewards")
 }
+
+model Service {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        String   // food, decoration, entertainment
+  price       Float
+  duration    String?  // "2-3 hours", "full day"
+  includes    String?  // JSON array of included items
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  bookings    Booking[]
+  
+  @@map("services")
+}
+
+model Booking {
+  id               String   @id @default(cuid())
+  eventDate        DateTime
+  specialRequests  String?
+  status           String   @default("pending") // pending, confirmed, completed, cancelled
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  // Relations
+  serviceId        String
+  service          Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  userId           String
+  groupId          String
+  
+  @@map("bookings")
+}
