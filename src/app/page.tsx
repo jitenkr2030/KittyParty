@@ -66,32 +66,55 @@ export default function LandingPage() {
   ]
 
   const handleLogin = async (email: string, password: string) => {
+    if (!email || !password) {
+      alert('Please enter both email and password')
+      return
+    }
+    
     setIsLoading(true)
     try {
-      await signIn('credentials', {
+      const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
       })
-      router.push('/dashboard')
+      
+      if (result?.error) {
+        alert('Invalid credentials. Please try again.')
+      } else {
+        router.push('/dashboard')
+      }
     } catch (error) {
       console.error('Login error:', error)
+      alert('An error occurred. Please try again.')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleSignup = async (email: string, password: string, name: string) => {
+  const handleSignup = async (name: string, email: string, password: string) => {
+    if (!name || !email || !password) {
+      alert('Please fill in all fields')
+      return
+    }
+    
     setIsLoading(true)
     try {
-      await signIn('credentials', {
+      // For signup, we'll use the same credentials provider which creates a user if it doesn't exist
+      const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
       })
-      router.push('/dashboard')
+      
+      if (result?.error) {
+        alert('Signup failed. Please try again.')
+      } else {
+        router.push('/dashboard')
+      }
     } catch (error) {
       console.error('Signup error:', error)
+      alert('An error occurred. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -284,7 +307,7 @@ export default function LandingPage() {
                     onClick={() => {
                       const email = (document.getElementById('login-email') as HTMLInputElement)?.value
                       const password = (document.getElementById('login-password') as HTMLInputElement)?.value
-                      if (email && password) handleLogin(email, password)
+                      handleLogin(email, password)
                     }}
                     disabled={isLoading}
                   >
@@ -311,7 +334,7 @@ export default function LandingPage() {
                       const name = (document.getElementById('signup-name') as HTMLInputElement)?.value
                       const email = (document.getElementById('signup-email') as HTMLInputElement)?.value
                       const password = (document.getElementById('signup-password') as HTMLInputElement)?.value
-                      if (name && email && password) handleSignup(email, password, name)
+                      handleSignup(name, email, password)
                     }}
                     disabled={isLoading}
                   >
